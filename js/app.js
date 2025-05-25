@@ -2116,16 +2116,17 @@ const phpManager = {
         try {
             state.log('开始清理PHP服务器进程...');
 
-            // 只停止我们启动的 PHP 服务器
+            // 首先尝试停止我们启动的 PHP 服务器
             if (processPid) {
                 state.log(`清理我们启动的PHP服务器 (PID: ${processPid})`);
                 await phpManager.stopServer();
             } else {
-                state.log('没有需要清理的PHP服务器进程');
+                state.log('没有记录的PHP服务器PID，尝试通过端口清理...');
             }
 
-            // 不再清理所有PHP进程，避免误杀其他应用
-            // 如果需要清理特定的PHP进程，应该基于端口或其他特征来识别
+            // 无论是否有PID，都尝试清理占用3000端口的进程（确保彻底清理）
+            state.log('检查并清理占用3000端口的进程...');
+            await phpManager.cleanupPortProcess(CONFIG.PHP_PORT);
 
             state.log('PHP服务器进程清理完成');
         } catch (error) {
@@ -2174,14 +2175,54 @@ const phpManager = {
                         const pids = result.stdout.trim().split('\n');
                         for (const pid of pids) {
                             if (pid && pid.trim()) {
-                                state.log(`发现占用端口 ${port} 的进程 PID: ${pid.trim()}`);
-                                await Niva.api.process.exec('kill', ['-TERM', pid.trim()]);
-                                state.log(`已停止占用端口 ${port} 的进程 (PID: ${pid.trim()})`);
+                                const cleanPid = pid.trim();
+                                state.log(`发现占用端口 ${port} 的进程 PID: ${cleanPid}`);
+
+                                // 先尝试优雅终止
+                                try {
+                                    await Niva.api.process.exec('kill', ['-TERM', cleanPid]);
+                                    state.log(`发送TERM信号到进程 ${cleanPid}`);
+
+                                    // 等待2秒让进程优雅退出
+                                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                                    // 检查进程是否还在运行
+                                    const checkResult = await Niva.api.process.exec('ps', ['-p', cleanPid]);
+                                    if (checkResult.status === 0) {
+                                        // 进程仍在运行，强制杀死
+                                        state.log(`进程 ${cleanPid} 仍在运行，强制终止...`);
+                                        await Niva.api.process.exec('kill', ['-9', cleanPid]);
+                                        state.log(`已强制停止占用端口 ${port} 的进程 (PID: ${cleanPid})`);
+                                    } else {
+                                        state.log(`进程 ${cleanPid} 已优雅退出`);
+                                    }
+                                } catch (killError) {
+                                    state.log(`终止进程 ${cleanPid} 时出错: ${killError.message}`, 'warning');
+                                }
                             }
                         }
+                    } else {
+                        state.log(`没有发现占用端口 ${port} 的进程`);
                     }
                 } catch (e) {
                     state.log(`Unix端口清理失败: ${e.message}`, 'warning');
+
+                    // 备用方案：尝试使用netstat
+                    try {
+                        state.log('尝试使用netstat作为备用方案...');
+                        const netstatResult = await Niva.api.process.exec('netstat', ['-anp']);
+                        if (netstatResult.stdout) {
+                            const lines = netstatResult.stdout.split('\n');
+                            for (const line of lines) {
+                                if (line.includes(`:${port} `) && line.includes('LISTEN')) {
+                                    state.log(`netstat发现端口 ${port} 被占用: ${line.trim()}`);
+                                    // 可以进一步解析PID，但这里先记录日志
+                                }
+                            }
+                        }
+                    } catch (netstatError) {
+                        state.log(`netstat备用方案也失败: ${netstatError.message}`, 'warning');
+                    }
                 }
             }
         } catch (error) {
@@ -2417,6 +2458,24 @@ function startApp() {
     }, 250);
 
     window.addEventListener('resize', handleResize);
+
+    // 添加页面卸载时的清理处理
+    window.addEventListener('beforeunload', async (event) => {
+        try {
+            state.log('页面即将卸载，执行清理...');
+            await phpManager.cleanup();
+        } catch (error) {
+            console.error('页面卸载清理失败:', error);
+        }
+    });
+
+    // 添加页面隐藏时的清理处理（适用于移动设备或标签页切换）
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // 页面被隐藏时不立即清理，但可以记录状态
+            console.log('页面被隐藏');
+        }
+    });
 }
 
 // 检查DOM状态并启动应用
