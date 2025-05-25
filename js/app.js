@@ -2247,6 +2247,48 @@ const initApp = async () => {
     }
 
     if (serverStarted) {
+        // PHP服务器启动成功后的处理
+        state.log('PHP服务器启动成功，切换到服务器模式');
+
+        // 隐藏非iframe容器并尝试全屏
+        try {
+            // 添加PHP服务器模式样式类
+            document.body.classList.add('php-server-mode');
+            state.log('已隐藏非iframe容器，切换到全屏模式');
+
+            // 尝试使用浏览器全屏API（非阻塞方式）
+            setTimeout(() => {
+                try {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().then(() => {
+                            state.log('已进入浏览器全屏模式');
+                        }).catch(() => {
+                            state.log('浏览器全屏模式需要用户手动触发，请按F11键全屏', 'warning');
+                        });
+                    } else {
+                        state.log('浏览器不支持全屏API，请按F11键手动全屏', 'warning');
+                    }
+                } catch (fullscreenError) {
+                    // 静默处理全屏错误，不影响主要功能
+                    state.log('全屏功能不可用，请按F11键手动全屏', 'warning');
+                }
+            }, 1000); // 延迟1秒执行，避免阻塞主流程
+
+            // 监听全屏状态变化
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    state.log('已进入全屏模式');
+                } else {
+                    state.log('已退出全屏模式');
+                    // 可选：退出全屏时显示提示
+                    // state.log('提示：如需查看控制面板，请刷新页面', 'warning');
+                }
+            });
+
+        } catch (error) {
+            state.log(`切换到服务器模式时出错: ${error?.message || '未知错误'}`, 'error');
+        }
+
         // 加载 PHP 页面到 iframe
         state.setIframeLoading(true);
         elements.iframe.onload = () => {

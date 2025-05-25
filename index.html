@@ -21,6 +21,63 @@
     <!-- 主题颜色 -->
     <meta name="theme-color" content="#4a6cf7">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- PHP服务器模式样式 -->
+    <style>
+        /* PHP服务器启动后隐藏非iframe容器 */
+        .php-server-mode .header,
+        .php-server-mode .footer,
+        .php-server-mode .status-container,
+        .php-server-mode .log-container {
+            display: none !important;
+        }
+
+        /* PHP服务器模式下iframe容器占满全屏 */
+        .php-server-mode .iframe-container {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* PHP服务器模式下iframe占满容器 */
+        .php-server-mode .iframe-container iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+        }
+
+        /* PHP服务器模式下隐藏容器的滚动条 */
+        .php-server-mode {
+            overflow: hidden !important;
+        }
+
+        /* 添加全屏提示 */
+        .php-server-mode::before {
+            content: "💡 提示：按 F11 键可全屏显示，按 Esc 键退出全屏";
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(74, 108, 247, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10000;
+            animation: fadeInOut 6s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+    </style>
 </head>
 <body>
     <div class="container" role="main">
