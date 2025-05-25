@@ -56,26 +56,64 @@
             overflow: hidden !important;
         }
 
-        /* 添加全屏提示 */
-        .php-server-mode::before {
-            content: "💡 提示：按 F11 键可全屏显示，按 Esc 键退出全屏";
+        /* 全屏状态提示框 */
+        .fullscreen-tip {
             position: fixed;
             top: 10px;
             right: 10px;
-            background: rgba(74, 108, 247, 0.9);
+            background: rgba(74, 108, 247, 0.95);
             color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
+            padding: 8px 12px 8px 8px;
+            border-radius: 6px;
             font-size: 12px;
             z-index: 10000;
-            animation: fadeInOut 6s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            max-width: 300px;
         }
 
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translateY(-10px); }
-            15% { opacity: 1; transform: translateY(0); }
-            85% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-10px); }
+        .fullscreen-tip.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .fullscreen-tip.hide {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .fullscreen-tip-content {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .fullscreen-tip-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            line-height: 1;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .fullscreen-tip-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .fullscreen-tip-close:active {
+            background: rgba(255, 255, 255, 0.4);
         }
     </style>
 </head>

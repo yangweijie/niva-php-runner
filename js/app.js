@@ -51,6 +51,8 @@ let processPid = null;
 let osInfo = null;
 let killed = false;
 let retryCount = 0;
+let isFullscreen = false;
+let fullscreenTipElement = null;
 
 // DOM 元素 - 将在 DOM 加载完成后初始化
 let elements = {};
@@ -84,6 +86,76 @@ const utils = {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
+    }
+};
+
+// 全屏提示管理
+const fullscreenTip = {
+    // 创建提示元素
+    create: () => {
+        if (fullscreenTipElement) {
+            fullscreenTip.remove();
+        }
+
+        fullscreenTipElement = document.createElement('div');
+        fullscreenTipElement.className = 'fullscreen-tip hide';
+        fullscreenTipElement.innerHTML = `
+            <div class="fullscreen-tip-content"></div>
+            <button class="fullscreen-tip-close" title="关闭提示">×</button>
+        `;
+
+        // 添加关闭按钮事件
+        const closeBtn = fullscreenTipElement.querySelector('.fullscreen-tip-close');
+        closeBtn.addEventListener('click', () => {
+            fullscreenTip.hide();
+        });
+
+        document.body.appendChild(fullscreenTipElement);
+        return fullscreenTipElement;
+    },
+
+    // 显示提示
+    show: (message, autoHide = false) => {
+        if (!fullscreenTipElement) {
+            fullscreenTip.create();
+        }
+
+        const contentElement = fullscreenTipElement.querySelector('.fullscreen-tip-content');
+        contentElement.textContent = message;
+
+        fullscreenTipElement.classList.remove('hide');
+        fullscreenTipElement.classList.add('show');
+
+        // 自动隐藏
+        if (autoHide) {
+            setTimeout(() => {
+                fullscreenTip.hide();
+            }, 5000);
+        }
+    },
+
+    // 隐藏提示
+    hide: () => {
+        if (fullscreenTipElement) {
+            fullscreenTipElement.classList.remove('show');
+            fullscreenTipElement.classList.add('hide');
+        }
+    },
+
+    // 移除提示元素
+    remove: () => {
+        if (fullscreenTipElement && fullscreenTipElement.parentNode) {
+            fullscreenTipElement.parentNode.removeChild(fullscreenTipElement);
+            fullscreenTipElement = null;
+        }
+    },
+
+    // 更新提示内容
+    update: (message) => {
+        if (fullscreenTipElement) {
+            const contentElement = fullscreenTipElement.querySelector('.fullscreen-tip-content');
+            contentElement.textContent = message;
+        }
     }
 };
 
@@ -2232,6 +2304,48 @@ const phpManager = {
     }
 };
 
+// 全屏状态处理函数
+const handleExitFullscreen = async () => {
+    try {
+        state.log('用户请求退出全屏模式...');
+
+        if (utils.isNivaApiAvailable() && Niva.api.window && typeof Niva.api.window.setFullscreen === 'function') {
+            await Niva.api.window.setFullscreen(false);
+            state.log('已通过Niva API退出全屏模式');
+        } else if (document.exitFullscreen) {
+            await document.exitFullscreen();
+            state.log('已通过浏览器API退出全屏模式');
+        }
+
+        // 更新状态和提示
+        isFullscreen = false;
+        fullscreenTip.show('💡 已退出全屏模式，如需重新全屏请刷新页面', true); // 5秒后自动隐藏
+
+    } catch (error) {
+        state.log(`退出全屏时出错: ${error?.message || '未知错误'}`, 'error');
+        // 即使出错也更新状态
+        isFullscreen = false;
+        fullscreenTip.show('⚠️ 退出全屏可能未完全成功，请手动调整窗口', true);
+    }
+};
+
+// 监听浏览器全屏状态变化（备用监听）
+document.addEventListener('fullscreenchange', () => {
+    const isDocumentFullscreen = !!document.fullscreenElement;
+
+    if (isDocumentFullscreen && !isFullscreen) {
+        // 进入浏览器全屏
+        isFullscreen = true;
+        fullscreenTip.show('💡 已进入全屏模式，按 Esc 键退出全屏');
+        state.log('检测到进入浏览器全屏模式');
+    } else if (!isDocumentFullscreen && isFullscreen) {
+        // 退出浏览器全屏
+        isFullscreen = false;
+        fullscreenTip.show('💡 已退出全屏模式，如需重新全屏请刷新页面', true);
+        state.log('检测到退出浏览器全屏模式');
+    }
+});
+
 // 初始化应用
 const initApp = async () => {
     console.log('开始初始化应用...');
@@ -2297,32 +2411,57 @@ const initApp = async () => {
             document.body.classList.add('php-server-mode');
             state.log('已隐藏非iframe容器，切换到全屏模式');
 
-            // 尝试使用浏览器全屏API（非阻塞方式）
-            setTimeout(() => {
+            // 尝试使用Niva窗口全屏API（非阻塞方式）
+            setTimeout(async () => {
                 try {
-                    if (document.documentElement.requestFullscreen) {
-                        document.documentElement.requestFullscreen().then(() => {
-                            state.log('已进入浏览器全屏模式');
-                        }).catch(() => {
-                            state.log('浏览器全屏模式需要用户手动触发，请按F11键全屏', 'warning');
-                        });
+                    if (utils.isNivaApiAvailable() && Niva.api.window && typeof Niva.api.window.setFullscreen === 'function') {
+                        state.log('尝试使用Niva窗口全屏API...');
+                        await Niva.api.window.setFullscreen(true);
+                        state.log('已通过Niva API进入全屏模式');
+
+                        // 更新全屏状态和提示
+                        isFullscreen = true;
+                        fullscreenTip.show('💡 已进入全屏模式，按 Esc 键退出全屏');
                     } else {
-                        state.log('浏览器不支持全屏API，请按F11键手动全屏', 'warning');
+                        state.log('Niva窗口全屏API不可用，尝试浏览器全屏...', 'warning');
+
+                        // 备用方案：使用浏览器全屏API
+                        if (document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().then(() => {
+                                state.log('已进入浏览器全屏模式');
+                            }).catch(() => {
+                                state.log('浏览器全屏模式需要用户手动触发，请按F11键全屏', 'warning');
+                            });
+                        } else {
+                            state.log('浏览器不支持全屏API，请按F11键手动全屏', 'warning');
+                        }
                     }
                 } catch (fullscreenError) {
-                    // 静默处理全屏错误，不影响主要功能
-                    state.log('全屏功能不可用，请按F11键手动全屏', 'warning');
+                    // 如果Niva API失败，尝试浏览器API作为备用
+                    const errorMsg = fullscreenError?.message || fullscreenError?.toString() || '未知错误';
+                    state.log(`Niva全屏API失败: ${errorMsg}，尝试浏览器全屏...`, 'warning');
+
+                    try {
+                        if (document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().then(() => {
+                                state.log('已进入浏览器全屏模式（备用方案）');
+                            }).catch(() => {
+                                state.log('所有全屏方法都失败，请按F11键手动全屏', 'warning');
+                            });
+                        } else {
+                            state.log('所有全屏方法都不可用，请按F11键手动全屏', 'warning');
+                        }
+                    } catch (browserError) {
+                        state.log('所有全屏功能都不可用，请按F11键手动全屏', 'warning');
+                    }
                 }
             }, 1000); // 延迟1秒执行，避免阻塞主流程
 
-            // 监听全屏状态变化
-            document.addEventListener('fullscreenchange', () => {
-                if (document.fullscreenElement) {
-                    state.log('已进入全屏模式');
-                } else {
-                    state.log('已退出全屏模式');
-                    // 可选：退出全屏时显示提示
-                    // state.log('提示：如需查看控制面板，请刷新页面', 'warning');
+            // 添加键盘事件监听
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && isFullscreen) {
+                    // 处理Esc键退出全屏
+                    handleExitFullscreen();
                 }
             });
 
