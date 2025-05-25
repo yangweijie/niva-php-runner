@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Niva PHP Server - 测试版本</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .status-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-left: 4px solid #4a6cf7;
+            background-color: #f9f9f9;
+        }
+        .status-icon {
+            margin-right: 10px;
+        }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .pending { border-left-color: #ffc107; }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Niva PHP Server - 测试版本</h1>
+        
+        <div id="status-list">
+            <div class="status-item">
+                <span class="status-icon">⏳</span>
+                <span>正在初始化测试...</span>
+            </div>
+        </div>
+
+        <div class="log" id="log-container">
+            <div>日志输出：</div>
+        </div>
+    </div>
+
+    <script>
+        console.log('=== 测试版本开始 ===');
+        
+        // 基本功能测试
+        function addStatus(message, type = 'pending') {
+            console.log(`[STATUS] ${type}: ${message}`);
+            
+            const statusList = document.getElementById('status-list');
+            const statusItem = document.createElement('div');
+            statusItem.className = `status-item ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                pending: '⏳'
+            };
+            
+            statusItem.innerHTML = `
+                <span class="status-icon">${icons[type] || 'ℹ️'}</span>
+                <span>${message}</span>
+            `;
+            
+            statusList.appendChild(statusItem);
+        }
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            console.log(`[LOG] ${logMessage}`);
+            
+            const logContainer = document.getElementById('log-container');
+            const logItem = document.createElement('div');
+            logItem.textContent = logMessage;
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 等待DOM加载完成
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOM 加载完成，开始测试...');
+            
+            addStatus('DOM 加载完成', 'success');
+            addLog('开始基本功能测试');
+            
+            // 测试 Niva API
+            addLog('检查 Niva API 可用性...');
+            if (typeof Niva !== 'undefined') {
+                addStatus('Niva 对象存在', 'success');
+                addLog('Niva 对象存在');
+                
+                if (Niva.api) {
+                    addStatus('Niva.api 可用', 'success');
+                    addLog('Niva.api 可用');
+                    
+                    // 测试基本API调用
+                    try {
+                        addLog('测试 Niva.api.os.info()...');
+                        const osInfo = await Niva.api.os.info();
+                        addStatus('获取系统信息成功', 'success');
+                        addLog(`系统信息: ${JSON.stringify(osInfo)}`);
+                        
+                        addLog('测试 Niva.api.process.currentDir()...');
+                        const currentDir = await Niva.api.process.currentDir();
+                        addStatus('获取当前目录成功', 'success');
+                        addLog(`当前目录: ${currentDir}`);
+                        
+                        addLog('测试 Niva.api.os.dirs()...');
+                        const userDirs = await Niva.api.os.dirs();
+                        addStatus('获取用户目录成功', 'success');
+                        addLog(`用户目录: ${JSON.stringify(userDirs)}`);
+                        
+                        // 如果所有测试都通过，尝试加载主应用
+                        addStatus('基本测试完成，尝试加载主应用...', 'success');
+                        addLog('基本测试完成，尝试加载主应用...');
+                        
+                        // 动态加载主应用的JavaScript
+                        const script = document.createElement('script');
+                        script.src = 'js/app.js';
+                        script.onload = function() {
+                            addStatus('主应用JavaScript加载成功', 'success');
+                            addLog('主应用JavaScript加载成功');
+                        };
+                        script.onerror = function(error) {
+                            addStatus('主应用JavaScript加载失败', 'error');
+                            addLog('主应用JavaScript加载失败');
+                            console.error('主应用JavaScript加载失败:', error);
+                        };
+                        document.head.appendChild(script);
+                        
+                    } catch (error) {
+                        addStatus('API调用测试失败', 'error');
+                        addLog(`API调用测试失败: ${error.message}`);
+                        console.error('API调用测试失败:', error);
+                    }
+                    
+                } else {
+                    addStatus('Niva.api 不可用', 'error');
+                    addLog('Niva.api 不可用');
+                }
+            } else {
+                addStatus('Niva 对象不存在', 'error');
+                addLog('Niva 对象不存在 - 可能不在Niva环境中运行');
+            }
+        });
+        
+        // 全局错误处理
+        window.addEventListener('error', function(event) {
+            console.error('全局错误:', event.error);
+            addStatus(`发生错误: ${event.message}`, 'error');
+            addLog(`全局错误: ${event.message}`);
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('未处理的Promise拒绝:', event.reason);
+            addStatus(`Promise错误: ${event.reason}`, 'error');
+            addLog(`Promise错误: ${event.reason}`);
+        });
+        
+        console.log('=== 测试版本脚本加载完成 ===');
+    </script>
+</body>
+</html>

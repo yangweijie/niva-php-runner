@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试版本</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>JavaScript 加载调试</h1>
+    <div id="output"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            console.log(logMessage);
+
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = logMessage;
+            output.appendChild(div);
+        }
+
+        log('开始调试...');
+
+        // 先测试简单文件
+        log('步骤1: 测试简单JavaScript文件...');
+
+        const testScript = document.createElement('script');
+        testScript.onload = function() {
+            log('简单文件加载成功', 'success');
+
+            setTimeout(() => {
+                if (window.TestApp) {
+                    log('TestApp 对象存在: ' + JSON.stringify(window.TestApp), 'success');
+
+                    // 简单文件成功后，测试主文件
+                    log('步骤2: 测试主应用文件...');
+                    testMainApp();
+                } else {
+                    log('TestApp 对象不存在', 'error');
+                }
+            }, 200);
+        };
+        testScript.onerror = function() {
+            log('简单文件加载失败', 'error');
+        };
+        testScript.src = 'js/test.js';
+        document.head.appendChild(testScript);
+
+        function testMainApp() {
+            // 检查主文件是否存在
+            fetch('js/app.js')
+            .then(response => {
+                log(`js/app.js HTTP状态: ${response.status}`, response.ok ? 'success' : 'error');
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            })
+            .then(content => {
+                log(`文件大小: ${content.length} 字符`, 'success');
+                log('文件内容前100字符: ' + content.substring(0, 100));
+
+                // 尝试加载脚本
+                log('尝试动态加载脚本...');
+                const script = document.createElement('script');
+
+                // 添加详细的事件监听
+                script.onload = function() {
+                    log('脚本加载成功！', 'success');
+
+                    // 检查全局对象
+                    setTimeout(() => {
+                        if (window.App) {
+                            log('window.App 对象存在', 'success');
+                            log('App对象属性: ' + Object.keys(window.App).join(', '));
+                        } else {
+                            log('window.App 对象不存在', 'error');
+                        }
+                    }, 100);
+                };
+
+                script.onerror = function(event) {
+                    log('脚本加载失败！', 'error');
+                    log('错误事件: ' + JSON.stringify(event));
+                };
+
+                // 监听脚本执行过程中的错误
+                const originalError = window.onerror;
+                window.onerror = function(message, source, lineno, colno, error) {
+                    log(`脚本执行错误: ${message} (行${lineno}:列${colno})`, 'error');
+                    if (error && error.stack) {
+                        log('错误堆栈: ' + error.stack, 'error');
+                    }
+                    if (originalError) {
+                        return originalError.apply(this, arguments);
+                    }
+                };
+
+                script.src = 'js/app.js';
+                document.head.appendChild(script);
+
+                log('脚本标签已添加到DOM');
+            })
+            .catch(error => {
+                log(`获取文件失败: ${error.message}`, 'error');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="description" content="Niva PHP 服务器控制面板">
+    <meta name="theme-color" content="#4a6cf7">
+    <title>Niva PHP Server</title>
+
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="css/styles.css" as="style">
+    <link rel="preload" href="js/app.js" as="script">
+
+    <!-- 样式表 -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- 图标 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐘</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐘</text></svg>">
+
+    <!-- 主题颜色 -->
+    <meta name="theme-color" content="#4a6cf7">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+    <div class="container" role="main">
+        <header class="header" role="banner">
+            <h1>Niva PHP Server</h1>
+            <div class="server-info">
+                <span id="server-status" class="status-indicator">
+                    <span class="loader"></span>
+                    <span>正在初始化...</span>
+                </span>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="status-container" aria-labelledby="status-heading">
+                <h2 id="status-heading">服务器状态</h2>
+                <div id="status-list" role="log" aria-live="polite">
+                    <div class="status-item">
+                        <span class="status-icon pending" aria-hidden="true">⏳</span>
+                        <span>正在初始化服务器...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="iframe-container" aria-label="PHP 应用预览">
+                <iframe
+                    id="php-server-iframe"
+                    src="about:blank"
+                    title="PHP 应用预览"
+                    sandbox="allow-same-origin allow-scripts allow-forms"
+                    loading="eager">
+                </iframe>
+            </section>
+
+            <section class="log-container" aria-labelledby="log-heading">
+                <h3 id="log-heading">日志输出</h3>
+                <div class="log" id="log-container" role="log" aria-live="polite">
+                    <!-- 日志内容将通过 JavaScript 动态添加 -->
+                </div>
+            </section>
+        </div>
+
+        <footer class="footer" role="contentinfo">
+            <p>Niva PHP Server &copy; 2025 | 版本: 1.0.0</p>
+        </footer>
+    </div>
+
+    <!-- 异步加载 JavaScript -->
+    <script>
+        console.log('开始加载 JavaScript 文件...');
+
+        // 检查文件是否存在
+        const script = document.createElement('script');
+        script.src = 'js/app.js';
+        script.onload = function() {
+            console.log('JavaScript 文件加载成功');
+        };
+        script.onerror = function(error) {
+            console.error('JavaScript 文件加载失败:', error);
+            console.error('请检查 js/app.js 文件是否存在');
+
+            // 显示错误信息
+            const statusList = document.getElementById('status-list');
+            if (statusList) {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'status-item';
+                errorItem.innerHTML = `
+                    <span class="status-icon error">❌</span>
+                    <span>JavaScript 文件加载失败，请检查 js/app.js 文件</span>
+                `;
+                statusList.appendChild(errorItem);
+            }
+        };
+        document.head.appendChild(script);
+    </script>
+
+    <!-- 内联关键 JavaScript 用于加载状态 -->
+    <script>
+        // 确保在 JavaScript 加载期间显示加载状态
+        document.documentElement.classList.add('js-loading');
+        window.addEventListener('load', function() {
+            document.documentElement.classList.remove('js-loading');
+        });
+
+        // 错误处理
+        window.addEventListener('error', function(event) {
+            console.error('全局错误:', event.error);
+
+            // 更新状态显示
+            const statusList = document.getElementById('status-list');
+            if (statusList) {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'status-item';
+                errorItem.innerHTML = `
+                    <span class="status-icon error">❌</span>
+                    <span>发生错误: ${event.message || '未知错误'}</span>
+                `;
+                statusList.appendChild(errorItem);
+            }
+
+            // 记录到控制台
+            if (event.error) {
+                console.error('错误堆栈:', event.error.stack);
+            }
+        }, true);
+
+        // 未捕获的 Promise 错误
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('未处理的 Promise 拒绝:', event.reason);
+
+            // 更新状态显示
+            const statusList = document.getElementById('status-list');
+            if (statusList) {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'status-item';
+                errorItem.innerHTML = `
+                    <span class="status-icon error">❌</span>
+                    <span>未处理的错误: ${event.reason || '未知错误'}</span>
+                `;
+                statusList.appendChild(errorItem);
+            }
+        });
+    </script>
+</body>
+</html>
