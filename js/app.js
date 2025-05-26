@@ -1867,9 +1867,14 @@ const phpManager = {
 
             // 先验证可执行文件和参数
             state.log(`验证可执行文件: ${serverConfig.executable}`);
-            const executableExists = await Niva.api.fs.exists(serverConfig.executable);
-            state.log(`可执行文件存在: ${executableExists}`);
-
+            let executableExists = true;
+            // 修正：如果是 Windows 且 executable 仅为 'php.exe' 或 'php'，跳过 exists 检查
+            if (!(serverConfig.executable === 'php.exe' || serverConfig.executable === 'php')) {
+                executableExists = await Niva.api.fs.exists(serverConfig.executable);
+                state.log(`可执行文件存在: ${executableExists}`);
+            } else {
+                state.log('可执行文件为系统 PATH 下的 php.exe，跳过本地 exists 检查');
+            }
             if (!executableExists) {
                 // 如果是相对路径，尝试在工作目录中查找
                 const relativePath = `${serverConfig.cwd}/${serverConfig.executable}`;
