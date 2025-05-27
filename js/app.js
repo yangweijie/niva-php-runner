@@ -1,6 +1,4 @@
 // JavaScript 文件开始加载
-console.log('=== js/app.js 文件开始加载 ===');
-console.log('时间戳:', new Date().toISOString());
 
 // 配置常量
 const CONFIG = {
@@ -60,9 +58,7 @@ let elements = {};
 // 工具函数
 const utils = {
     // 检查 Niva API 是否可用
-    isNivaApiAvailable: () => {
-        return typeof Niva !== 'undefined' && Niva.api && typeof Niva.api === 'object';
-    },
+    isNivaApiAvailable: () => typeof Niva !== 'undefined' && Niva.api && typeof Niva.api === 'object',
 
     // 生成唯一ID
     generateId: () => {
@@ -163,8 +159,6 @@ const fullscreenTip = {
 const state = {
     // 更新状态
     updateStatus: (message, status = 'pending') => {
-        console.log(`[STATUS] ${status.toUpperCase()}: ${message}`);
-
         if (!elements.statusList) {
             console.warn('状态列表元素不存在，跳过更新');
             return;
@@ -252,12 +246,9 @@ const network = {
     // 检查端口是否可用
     checkPort: async (port) => {
         const url = `http://localhost:${port}`;
-        state.log(`检查端口 ${port} 是否可用...`);
-
         try {
             const isAvailable = await network.httpGetWithTimeout(url);
             if (isAvailable) {
-                state.log(`端口 ${port} 已被占用`);
                 return false;
             }
             return true;
@@ -270,8 +261,6 @@ const network = {
     // 测试镜像源速度
     testMirrorSpeed: async (mirror) => {
         try {
-            state.log(`测试镜像源速度: ${mirror.name}`);
-
             const startTime = Date.now();
 
             // 使用 curl 命令测试镜像源速度
@@ -299,7 +288,7 @@ const network = {
                     const speedDownload = parseFloat(parts[1]);
 
                     if (httpCode >= 200 && httpCode < 400) {
-                        state.log(`${mirror.name} - HTTP: ${httpCode}, 速度: ${speedDownload.toFixed(2)} bytes/s, 响应时间: ${responseTime}ms`);
+
                         return {
                             success: true,
                             mirror: mirror,
@@ -312,7 +301,7 @@ const network = {
                 }
             }
 
-            state.log(`${mirror.name} - 测试失败或响应异常`, 'warning');
+
             return {
                 success: false,
                 mirror: mirror,
@@ -323,7 +312,7 @@ const network = {
             };
 
         } catch (error) {
-            state.log(`${mirror.name} - 测试出错: ${error.message}`, 'error');
+
             return {
                 success: false,
                 mirror: mirror,
@@ -348,7 +337,6 @@ const network = {
     // 选择最快的 Composer 镜像源
     selectFastestComposerMirror: async () => {
         try {
-            state.log('开始测试 Composer 镜像源速度...');
             state.updateStatus('正在测试镜像源速度...', 'pending');
 
             const testResults = [];
@@ -376,7 +364,7 @@ const network = {
             testResults.sort((a, b) => b.score - a.score);
             const bestMirror = testResults[0];
 
-            state.log(`选择最佳镜像源: ${bestMirror.mirror.name} (评分: ${bestMirror.score.toFixed(2)})`);
+
             state.updateStatus(`选择镜像源: ${bestMirror.mirror.name}`, 'success');
 
             return bestMirror.mirror;
@@ -429,7 +417,6 @@ const phpManager = {
 
             // 检测架构
             const architecture = await phpManager.detectArchitecture();
-            state.log(`检测到系统: ${osKey}, 架构: ${architecture}`);
 
             // 选择下载链接
             let downloadUrl;
@@ -441,7 +428,6 @@ const phpManager = {
                 throw new Error(`不支持的操作系统: ${osKey}`);
             }
 
-            state.log(`选择的下载链接: ${downloadUrl}`);
             state.updateStatus(`准备下载 PHP: ${osKey} ${architecture}`, 'pending');
 
             // 获取用户目录
@@ -482,7 +468,6 @@ const phpManager = {
             const zipFileName = `php-${osKey}-${architecture}.zip`;
             const zipFilePath = `${tempDir}/${zipFileName}`;
 
-            state.log('开始下载 PHP 压缩包...');
             state.updateStatus('正在下载 PHP 压缩包...', 'pending');
 
             const downloadResponse = await Niva.api.http.get(downloadUrl);
@@ -500,11 +485,9 @@ const phpManager = {
                 state.log(`直接写入失败，尝试 base64 编码: ${error.message}`, 'warning');
                 await Niva.api.fs.write(zipFilePath, downloadResponse.body, 'base64');
             }
-            state.log(`PHP 压缩包下载成功: ${zipFilePath}`);
             state.updateStatus('PHP 压缩包下载成功', 'success');
 
             // 解压缩文件
-            state.log('开始解压缩 PHP 文件...');
             state.updateStatus('正在解压缩 PHP 文件...', 'pending');
 
             let extractSuccess = false;
@@ -1730,30 +1713,19 @@ const phpManager = {
 
         try {
             // 检查端口是否可用
-            console.log(`检查端口 ${CONFIG.PHP_PORT} 是否可用...`);
-            state.log(`检查端口 ${CONFIG.PHP_PORT}`);
-
             const isPortAvailable = await network.checkPort(CONFIG.PHP_PORT);
-            console.log('端口检查结果:', isPortAvailable);
-
             if (!isPortAvailable) {
-                console.error(`端口 ${CONFIG.PHP_PORT} 已被占用`);
                 state.log(`端口 ${CONFIG.PHP_PORT} 已被占用，尝试清理...`, 'warning');
 
                 // 尝试清理占用端口的进程
                 await phpManager.cleanupPortProcess(CONFIG.PHP_PORT);
 
-                // 再次检查端口
                 const isPortAvailableAfterCleanup = await network.checkPort(CONFIG.PHP_PORT);
                 if (!isPortAvailableAfterCleanup) {
                     state.updateStatus(`端口 ${CONFIG.PHP_PORT} 仍被占用，无法启动`, 'error');
                     return false;
-                } else {
-                    state.log(`端口 ${CONFIG.PHP_PORT} 清理成功`);
                 }
             }
-
-            state.log('端口检查通过');
 
             // 尝试获取 PHP 可执行文件路径
             let phpPath;
@@ -1762,11 +1734,8 @@ const phpManager = {
             let projectFramework = 'unknown';
             let documentRoot = null;
 
-            console.log('开始获取 PHP 可执行文件...');
-
             // 首先尝试使用系统 PHP
             try {
-                console.log('优先尝试使用系统 PHP...');
                 state.updateStatus('检查系统 PHP...', 'pending');
                 phpPath = await phpManager.trySystemPhp();
                 console.log('系统 PHP 找到:', phpPath);
@@ -1821,7 +1790,7 @@ const phpManager = {
                         throw new Error('无法找到可写入的用户目录');
                     }
                     workingDir = `${workingDir}/niva_php_server`;
-                    state.log(`使用下载PHP的工作目录: ${workingDir}`);
+
 
                     // 使用下载的 PHP 处理 Composer 依赖
                     await phpManager.handleComposerDependencies(workingDir, phpPath);
@@ -1841,8 +1810,6 @@ const phpManager = {
 
             // 根据框架类型构建启动命令
             const serverConfig = await phpManager.buildServerCommand(workingDir, projectFramework, documentRoot, phpPath);
-            state.log(`服务器配置: ${JSON.stringify(serverConfig)}`);
-
             if (!serverConfig.success) {
                 throw new Error(serverConfig.error);
             }
@@ -1850,37 +1817,24 @@ const phpManager = {
             // 在启动PHP服务器前，验证项目文件
             const entryFile = documentRoot ? `${documentRoot}/index.php` : `${workingDir}/index.php`;
             const finalCheck = await Niva.api.fs.exists(entryFile);
-            state.log(`启动前检查入口文件存在: ${entryFile} -> ${finalCheck}`);
-
             if (!finalCheck) {
                 state.log('警告: 入口文件不存在，PHP服务器可能无法正常工作', 'warning');
             }
-
-            // 启动 PHP 服务器
-            state.log(`正在启动 ${projectFramework} 项目`);
-            state.log(`启动命令: ${serverConfig.executable} ${serverConfig.args.join(' ')}`);
-            state.log(`工作目录: ${serverConfig.cwd}`);
 
             // 使用spawn方式启动PHP服务器，以便更好地控制进程
             let process;
             let startMethod = 'unknown';
 
             // 先验证可执行文件和参数
-            state.log(`验证可执行文件: ${serverConfig.executable}`);
             let executableExists = true;
             // 修正：如果是 Windows 且 executable 仅为 'php.exe' 或 'php'，跳过 exists 检查
             if (!(serverConfig.executable === 'php.exe' || serverConfig.executable === 'php')) {
                 executableExists = await Niva.api.fs.exists(serverConfig.executable);
-                state.log(`可执行文件存在: ${executableExists}`);
-            } else {
-                state.log('可执行文件为系统 PATH 下的 php.exe，跳过本地 exists 检查');
             }
             if (!executableExists) {
                 // 如果是相对路径，尝试在工作目录中查找
                 const relativePath = `${serverConfig.cwd}/${serverConfig.executable}`;
                 const relativeExists = await Niva.api.fs.exists(relativePath);
-                state.log(`尝试相对路径 ${relativePath}: ${relativeExists}`);
-
                 if (!relativeExists) {
                     throw new Error(`可执行文件不存在: ${serverConfig.executable}`);
                 }
@@ -1893,39 +1847,33 @@ const phpManager = {
             const tryStartServer = async (config) => {
                 try {
                     // 方法1: 尝试使用exec with detached（更稳定）
-                    state.log('尝试使用 exec(detached) 启动...');
                     const result = await Niva.api.process.exec(config.executable, config.args, {
                         cwd: config.cwd,
                         detached: true
                     });
                     startMethod = 'exec-detached';
-                    state.log(`PHP 服务器exec(detached)结果: ${JSON.stringify(result)}`);
                     return result;
                 } catch (execError) {
                     state.log(`exec(detached)失败: ${execError.message}`, 'warning');
 
                     try {
                         // 方法2: 尝试使用spawn
-                        state.log('尝试使用 spawn 启动...');
                         const result = await Niva.api.process.spawn(config.executable, config.args, {
                             cwd: config.cwd,
                             detached: false
                         });
                         startMethod = 'spawn';
-                        state.log(`PHP 服务器spawn结果: ${JSON.stringify(result)}`);
                         return result;
                     } catch (spawnError) {
                         state.log(`spawn失败: ${spawnError.message}`, 'warning');
 
                         try {
                             // 方法3: 尝试使用exec without detached
-                            state.log('尝试使用 exec(normal) 启动...');
-                            const result = await Niva.api.process.exec(config.executable, config.args, {
-                                cwd: config.cwd
-                            });
-                            startMethod = 'exec-normal';
-                            state.log(`PHP 服务器exec(normal)结果: ${JSON.stringify(result)}`);
-                            return result;
+                        const result = await Niva.api.process.exec(config.executable, config.args, {
+                            cwd: config.cwd
+                        });
+                        startMethod = 'exec-normal';
+                        return result;
                         } catch (finalError) {
                             throw new Error(`所有启动方法都失败: exec-detached(${execError.message}), spawn(${spawnError.message}), exec-normal(${finalError.message})`);
                         }
@@ -1951,12 +1899,9 @@ const phpManager = {
                         cwd: workingDir
                     };
 
-                    state.log(`回退启动命令: ${fallbackConfig.executable} ${fallbackConfig.args.join(' ')}`);
-
                     try {
                         process = await tryStartServer(fallbackConfig);
                         serverStarted = true;
-                        state.log('使用 PHP 内置服务器启动成功');
                     } catch (fallbackError) {
                         throw new Error(`框架启动和回退方案都失败: ${startError.message}, 回退错误: ${fallbackError.message}`);
                     }
@@ -1964,8 +1909,6 @@ const phpManager = {
                     throw startError;
                 }
             }
-
-            state.log(`PHP服务器启动方法: ${startMethod}`);
 
             // 处理进程 ID
             if (typeof process === 'number') {
@@ -1978,15 +1921,11 @@ const phpManager = {
                 } else {
                     // 尝试从process对象中找到PID
                     const keys = Object.keys(process);
-                    state.log(`进程对象键: ${JSON.stringify(keys)}`);
                     processPid = process[keys[0]]; // 尝试第一个数字值
                 }
-            } else {
-                state.log('无法获取进程 PID', 'warning');
             }
 
             state.updateStatus(`PHP 服务器已启动 (PID: ${processPid || '未知'})`, 'success');
-            state.log(`PHP 服务器进程已启动，PID: ${processPid || '未知'}`);
 
             // 等待一小段时间让PHP服务器完全启动
             await new Promise(r => setTimeout(r, 1000));
@@ -2136,39 +2075,22 @@ const phpManager = {
 
         try {
             killed = true;
-            state.log(`正在停止 PHP 服务器 (PID: ${processPid})...`);
-
-            // 根据操作系统选择终止命令
             const osInfo = await Niva.api.os.info();
             const isWin = osInfo.os.toLowerCase().includes('windows');
 
             if (isWin) {
-                // Windows: 只杀死特定PID的进程
                 const result = await Niva.api.process.exec('TASKKILL', ['/PID', processPid.toString(), '/F']);
-                if (result.status === 0) {
-                    state.log(`成功停止 PHP 服务器 (PID: ${processPid})`, 'success');
-                } else {
+                if (result.status !== 0) {
                     state.log(`停止 PHP 服务器失败: ${result.stderr || '未知错误'}`, 'warning');
                 }
             } else {
-                // macOS/Linux: 只杀死特定PID的进程
                 try {
                     const result = await Niva.api.process.exec('kill', ['-TERM', processPid.toString()]);
                     if (result.status === 0) {
-                        state.log(`发送终止信号到 PHP 服务器 (PID: ${processPid})`);
-
-                        // 等待进程优雅退出
                         await new Promise(r => setTimeout(r, 2000));
-
-                        // 检查进程是否还在运行
                         const checkResult = await Niva.api.process.exec('ps', ['-p', processPid.toString()]);
-                        if (checkResult.status !== 0) {
-                            state.log(`PHP 服务器已优雅停止 (PID: ${processPid})`, 'success');
-                        } else {
-                            // 如果还在运行，强制杀死
-                            state.log(`进程仍在运行，强制停止 (PID: ${processPid})`);
+                        if (checkResult.status === 0) {
                             await Niva.api.process.exec('kill', ['-9', processPid.toString()]);
-                            state.log(`强制停止 PHP 服务器 (PID: ${processPid})`, 'success');
                         }
                     } else {
                         state.log(`发送终止信号失败: ${result.stderr || '未知错误'}`, 'warning');
@@ -2191,21 +2113,10 @@ const phpManager = {
         if (!utils.isNivaApiAvailable()) return;
 
         try {
-            state.log('开始清理PHP服务器进程...');
-
-            // 首先尝试停止我们启动的 PHP 服务器
             if (processPid) {
-                state.log(`清理我们启动的PHP服务器 (PID: ${processPid})`);
                 await phpManager.stopServer();
-            } else {
-                state.log('没有记录的PHP服务器PID，尝试通过端口清理...');
             }
-
-            // 无论是否有PID，都尝试清理占用3000端口的进程（确保彻底清理）
-            state.log('检查并清理占用3000端口的进程...');
             await phpManager.cleanupPortProcess(CONFIG.PHP_PORT);
-
-            state.log('PHP服务器进程清理完成');
         } catch (error) {
             const errorMsg = error?.message || error?.toString() || String(error);
             state.log(`清理进程时出错: ${errorMsg}`, 'error');
@@ -2217,7 +2128,7 @@ const phpManager = {
         if (!utils.isNivaApiAvailable()) return;
 
         try {
-            state.log(`查找占用端口 ${port} 的进程...`);
+
 
             const osInfo = await Niva.api.os.info();
             const isWin = osInfo.os.toLowerCase().includes('windows');
@@ -2233,9 +2144,7 @@ const phpManager = {
                                 const parts = line.trim().split(/\s+/);
                                 const pid = parts[parts.length - 1];
                                 if (pid && pid !== '0') {
-                                    state.log(`发现占用端口 ${port} 的进程 PID: ${pid}`);
                                     await Niva.api.process.exec('TASKKILL', ['/PID', pid, '/F']);
-                                    state.log(`已停止占用端口 ${port} 的进程 (PID: ${pid})`);
                                 }
                                 break;
                             }
@@ -2253,12 +2162,9 @@ const phpManager = {
                         for (const pid of pids) {
                             if (pid && pid.trim()) {
                                 const cleanPid = pid.trim();
-                                state.log(`发现占用端口 ${port} 的进程 PID: ${cleanPid}`);
-
                                 // 先尝试优雅终止
                                 try {
                                     await Niva.api.process.exec('kill', ['-TERM', cleanPid]);
-                                    state.log(`发送TERM信号到进程 ${cleanPid}`);
 
                                     // 等待2秒让进程优雅退出
                                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -2267,32 +2173,28 @@ const phpManager = {
                                     const checkResult = await Niva.api.process.exec('ps', ['-p', cleanPid]);
                                     if (checkResult.status === 0) {
                                         // 进程仍在运行，强制杀死
-                                        state.log(`进程 ${cleanPid} 仍在运行，强制终止...`);
                                         await Niva.api.process.exec('kill', ['-9', cleanPid]);
-                                        state.log(`已强制停止占用端口 ${port} 的进程 (PID: ${cleanPid})`);
                                     } else {
-                                        state.log(`进程 ${cleanPid} 已优雅退出`);
+
                                     }
                                 } catch (killError) {
                                     state.log(`终止进程 ${cleanPid} 时出错: ${killError.message}`, 'warning');
                                 }
                             }
                         }
-                    } else {
-                        state.log(`没有发现占用端口 ${port} 的进程`);
                     }
                 } catch (e) {
                     state.log(`Unix端口清理失败: ${e.message}`, 'warning');
 
                     // 备用方案：尝试使用netstat
                     try {
-                        state.log('尝试使用netstat作为备用方案...');
+
                         const netstatResult = await Niva.api.process.exec('netstat', ['-anp']);
                         if (netstatResult.stdout) {
                             const lines = netstatResult.stdout.split('\n');
                             for (const line of lines) {
                                 if (line.includes(`:${port} `) && line.includes('LISTEN')) {
-                                    state.log(`netstat发现端口 ${port} 被占用: ${line.trim()}`);
+
                                     // 可以进一步解析PID，但这里先记录日志
                                 }
                             }
@@ -2312,14 +2214,10 @@ const phpManager = {
 // 全屏状态处理函数
 const handleExitFullscreen = async () => {
     try {
-        state.log('用户请求退出全屏模式...');
-
         if (utils.isNivaApiAvailable() && Niva.api.window && typeof Niva.api.window.setFullscreen === 'function') {
             await Niva.api.window.setFullscreen(false);
-            state.log('已通过Niva API退出全屏模式');
         } else if (document.exitFullscreen) {
             await document.exitFullscreen();
-            state.log('已通过浏览器API退出全屏模式');
         }
 
         // 更新状态和提示
@@ -2339,64 +2237,48 @@ document.addEventListener('fullscreenchange', () => {
     const isDocumentFullscreen = !!document.fullscreenElement;
 
     if (isDocumentFullscreen && !isFullscreen) {
-        // 进入浏览器全屏
         isFullscreen = true;
         fullscreenTip.show('💡 已进入全屏模式，按 Esc 键退出全屏');
-        state.log('检测到进入浏览器全屏模式');
     } else if (!isDocumentFullscreen && isFullscreen) {
-        // 退出浏览器全屏
         isFullscreen = false;
         fullscreenTip.show('💡 已退出全屏模式，如需重新全屏请刷新页面', true);
-        state.log('检测到退出浏览器全屏模式');
     }
 });
 
 // 初始化应用
 const initApp = async () => {
-    console.log('开始初始化应用...');
     state.updateStatus('正在初始化...');
-    state.log('应用初始化开始');
 
     // 检查 Niva API 是否可用
-    console.log('检查 Niva API 可用性...');
     if (!utils.isNivaApiAvailable()) {
-        console.error('Niva API 不可用');
         state.updateStatus('Niva API 不可用', 'error');
         state.log('错误: 当前环境不支持 Niva API', 'error');
         return;
     }
 
-    console.log('Niva API 可用，继续初始化...');
-    state.log('Niva API 检查通过');
-
     // 设置窗口关闭处理
     try {
-        console.log('设置窗口关闭处理...');
         Niva.api.window.blockCloseRequested(true);
+
+        window.addEventListener('beforeunload', async (event) => {
+            await phpManager.cleanup();
+        });
+
         Niva.addEventListener("window.closeRequested", async (eventName, payload) => {
-            state.log('正在清理资源，请稍候...');
             await phpManager.cleanup();
             Niva.api.window.blockCloseRequested(false);
             Niva.api.window.close();
         });
-        state.log('窗口事件监听器设置成功');
     } catch (error) {
         console.error('设置窗口事件监听器失败:', error);
         state.log(`初始化窗口事件监听器失败: ${error.message}`, 'error');
     }
 
     // 启动 PHP 服务器
-    console.log('开始启动 PHP 服务器...');
-    state.log('开始启动 PHP 服务器');
-
     let serverStarted = false;
     try {
         serverStarted = await phpManager.startServer();
-        console.log('PHP 服务器启动结果:', serverStarted);
-
-        if (serverStarted) {
-            state.log('PHP 服务器启动成功，准备加载页面');
-        } else {
+        if (!serverStarted) {
             state.log('PHP 服务器启动失败', 'error');
         }
     } catch (error) {
@@ -2490,20 +2372,8 @@ const initApp = async () => {
 
 // 测试基本功能
 const testBasicFunctions = () => {
-    console.log('测试基本功能...');
-
-    // 测试日志功能
-    try {
-        state.log('测试日志功能');
-        console.log('日志功能正常');
-    } catch (error) {
-        console.error('日志功能异常:', error);
-    }
-
-    // 测试状态更新功能
     try {
         state.updateStatus('测试状态更新', 'success');
-        console.log('状态更新功能正常');
     } catch (error) {
         console.error('状态更新功能异常:', error);
     }
@@ -2536,7 +2406,6 @@ const testBasicFunctions = () => {
 
 // 初始化 DOM 元素
 const initElements = () => {
-    console.log('初始化 DOM 元素...');
     elements = {
         statusList: document.getElementById('status-list'),
         logContainer: document.getElementById('log-container'),
@@ -2544,56 +2413,33 @@ const initElements = () => {
         iframeContainer: document.querySelector('.iframe-container')
     };
 
-    // 检查关键元素是否存在
-    const missingElements = [];
-    Object.entries(elements).forEach(([key, element]) => {
-        if (!element) {
-            missingElements.push(key);
-            console.error(`缺少 DOM 元素: ${key}`);
-        } else {
-            console.log(`找到 DOM 元素: ${key}`);
-        }
-    });
-
+    const missingElements = Object.entries(elements).filter(([, element]) => !element).map(([key]) => key);
     if (missingElements.length > 0) {
-        console.error('缺少 DOM 元素:', missingElements);
         return false;
     }
-
-    console.log('DOM 元素初始化成功');
     return true;
 };
 
 // 启动应用函数
 function startApp() {
-    console.log('DOM 加载完成，开始初始化...');
-
-    // 初始化 DOM 元素
     if (!initElements()) {
-        console.error('初始化 DOM 元素失败，无法继续');
         alert('初始化失败：缺少必要的 DOM 元素');
         return;
     }
 
-    // 测试基本功能
-    try {
-        testBasicFunctions();
-    } catch (error) {
-        console.error('基本功能测试失败:', error);
-    }
+    (async () => {
+        if (utils.isNivaApiAvailable()) {
+            try {
+                await phpManager.cleanupPortProcess(CONFIG.PHP_PORT);
+            } catch (e) {
+                state.log('页面加载端口清理异常: ' + (e?.message || e), 'warning');
+            }
+        }
+    })();
 
-    // 初始化应用
-    console.log('开始初始化应用...');
     initApp().catch(error => {
-        console.error('应用初始化失败:', error);
         state.updateStatus('应用初始化失败', 'error');
         state.log(`初始化错误: ${error.message}`, 'error');
-
-        // 显示错误堆栈
-        if (error.stack) {
-            console.error('错误堆栈:', error.stack);
-            state.log(`错误堆栈: ${error.stack}`, 'error');
-        }
     });
 
     // 添加窗口大小调整处理
@@ -2642,8 +2488,3 @@ window.App = {
     testBasicFunctions,
     initApp
 };
-
-// JavaScript 文件加载完成
-console.log('=== js/app.js 文件加载完成 ===');
-console.log('时间戳:', new Date().toISOString());
-console.log('全局对象已导出到 window.App');
